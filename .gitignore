@@ -1,0 +1,6 @@
+.server.log
+nohup.out
+.DS_Store
+tools/cedict.txt
+venv/
+buildenv/
