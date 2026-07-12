@@ -1,8 +1,9 @@
 /* 魔法故事屋 — AI story generation targeting the child's tricky characters.
-   Calls the Claude API directly from the browser (raw HTTP — this app is
-   zero-build JS). The parent's API key lives ONLY in this device's
-   localStorage, entered behind a parent gate; it is never in the repo or
-   sent anywhere except api.anthropic.com.
+   Calls the Claude API or the OpenAI API directly from the browser (raw
+   HTTP — this app is zero-build JS), auto-detected from the key prefix
+   (sk-ant-… → Anthropic, sk-… → OpenAI). The parent's API key lives ONLY in
+   this device's localStorage, entered behind a parent gate; it is never in
+   the repo and is sent only to that provider's API endpoint.
 
    Design (from the DianDu design doc):
    - target chars   = practicePool (most-tapped / weakest)
@@ -16,8 +17,10 @@
   const UI = window.DIANDU_UI;
   const { app, esc, topbar, bindNav, toast, openReader, VIEWS } = UI;
 
-  const MODEL = "claude-opus-4-8";
+  const CLAUDE_MODEL = "claude-opus-4-8";
+  const OPENAI_MODEL = "gpt-4o-mini";
   const DAILY_LIMIT = 8;
+  const provider = () => Store.apiKey().startsWith("sk-ant") ? "anthropic" : "openai";
   const HAN = /[一-鿿]/g;
 
   const THEMES = [
@@ -53,13 +56,15 @@
       ${topbar("play")}
       <div class="form-card">
         <h2>🔐 家长设置 · Grown-ups only</h2>
-        <p class="import-note">Story magic uses the Claude AI service, which needs your own
-        Anthropic API key (from <b>console.anthropic.com</b>). The key is stored only on this
-        device and is used only to write stories. Each story costs a fraction of a cent.</p>
+        <p class="import-note">Story magic needs your own AI API key — either an
+        <b>OpenAI / ChatGPT</b> key (from <b>platform.openai.com</b>) or an
+        <b>Anthropic</b> key (from <b>console.anthropic.com</b>). The app detects which one
+        you pasted. The key is stored only on this device and is used only to write
+        stories. Each story costs a fraction of a cent.</p>
         <label class="form-label">先回答：${a} × ${b} = ?</label>
         <input class="text-input" id="gate" inputmode="numeric" placeholder="?">
         <label class="form-label" for="key-in">API Key</label>
-        <input class="text-input" id="key-in" type="password" placeholder="sk-ant-...">
+        <input class="text-input" id="key-in" type="password" placeholder="sk-…（OpenAI）或 sk-ant-…（Anthropic）">
         <button class="btn-primary" id="key-save">保存 · Save</button>
         <button class="btn-quiet" data-nav="play">返回</button>
       </div>`;
@@ -67,7 +72,7 @@
     app.querySelector("#key-save").addEventListener("click", () => {
       if (+app.querySelector("#gate").value !== a * b) { toast("再算一算 🤔"); return; }
       const k = app.querySelector("#key-in").value.trim();
-      if (!k.startsWith("sk-ant")) { toast("这不像一个 Anthropic API key"); return; }
+      if (!k.startsWith("sk-")) { toast("这不像一个 API key（应该以 sk- 开头）"); return; }
       Store.setApiKey(k);
       toast("✅ 设置好了");
       viewMagic();
@@ -165,23 +170,55 @@
     return problems;
   }
 
-  async function callClaude(sys, usr) {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
+  async function callLLM(sys, usr) {
+    const key = Store.apiKey();
+    let url, headers, body, extract;
+
+    if (provider() === "anthropic") {
+      url = "https://api.anthropic.com/v1/messages";
+      headers = {
         "content-type": "application/json",
-        "x-api-key": Store.apiKey(),
+        "x-api-key": key,
         "anthropic-version": "2023-06-01",
         "anthropic-dangerous-direct-browser-access": "true",
-      },
-      body: JSON.stringify({
-        model: MODEL,
+      };
+      body = {
+        model: CLAUDE_MODEL,
         max_tokens: 4000,
         system: sys,
         output_config: { format: { type: "json_schema", schema: STORY_SCHEMA } },
         messages: [{ role: "user", content: usr }],
-      }),
-    });
+      };
+      extract = data => {
+        if (data.stop_reason === "refusal") throw new Error("REFUSED");
+        return (data.content.find(b => b.type === "text") || {}).text || "";
+      };
+    } else {
+      url = "https://api.openai.com/v1/chat/completions";
+      headers = {
+        "content-type": "application/json",
+        "authorization": "Bearer " + key,
+      };
+      body = {
+        model: OPENAI_MODEL,
+        max_tokens: 4000,
+        response_format: {
+          type: "json_schema",
+          json_schema: { name: "story", strict: true, schema: STORY_SCHEMA },
+        },
+        messages: [
+          { role: "system", content: sys },
+          { role: "user", content: usr },
+        ],
+      };
+      extract = data => {
+        const m = data.choices && data.choices[0] && data.choices[0].message;
+        if (!m || m.refusal) throw new Error("REFUSED");
+        return m.content || "";
+      };
+    }
+
+    const res = await fetch(url, { method: "POST", headers, body: JSON.stringify(body) });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       const msg = err.error && err.error.message || res.statusText;
@@ -189,10 +226,7 @@
       if (res.status === 429) throw new Error("BUSY");
       throw new Error(msg);
     }
-    const data = await res.json();
-    if (data.stop_reason === "refusal") throw new Error("REFUSED");
-    const text = (data.content.find(b => b.type === "text") || {}).text || "";
-    return JSON.parse(text);
+    return JSON.parse(extract(await res.json()));
   }
 
   function showBrewing(step) {
@@ -208,13 +242,13 @@
     showBrewing("小精灵正在写故事");
     let story, prompt = buildPrompt(p, targets, theme, hero);
     try {
-      story = await callClaude(prompt.system, prompt.user);
+      story = await callLLM(prompt.system, prompt.user);
       let problems = validate(story, targets, prompt.allowed);
       if (problems.length) {
         showBrewing("再改一改，让故事更适合你");
         prompt = buildPrompt(p, targets, theme, hero,
           `\n上一稿的问题：${problems.join("；")}。请重写一个修正这些问题的新故事。`);
-        story = await callClaude(prompt.system, prompt.user);
+        story = await callLLM(prompt.system, prompt.user);
         problems = validate(story, targets, prompt.allowed);
         if (problems.some(x => x.includes("至少2次") || x.includes("太短"))) throw new Error("QUALITY");
       }
