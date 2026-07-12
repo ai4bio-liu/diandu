@@ -405,6 +405,30 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
 .flip-card.open .front, .flip-card.done .front { transform: rotateY(0); }
 .flip-card.done .front { border-color: var(--jade); background: var(--jade-wash); }
 
+/* ---- 识字阶梯 (level ladder) ---- */
+.ladder { display: grid; gap: 7px; margin-bottom: 26px; }
+.rung {
+  display: grid; grid-template-columns: 64px 1fr 56px;
+  gap: 12px; align-items: center;
+  background: var(--card); border: 1.5px solid var(--line); border-radius: 10px;
+  padding: 7px 14px;
+}
+.rung .rl { font-family: var(--display); font-size: 13.5px; font-weight: 600; color: var(--ink-soft); }
+.rung .rb { height: 9px; border-radius: 5px; background: var(--line-soft); overflow: hidden; }
+.rung .rb i { display: block; height: 100%; border-radius: 5px; background: var(--amber); }
+.rung .rn { font-family: var(--display); font-size: 12px; color: var(--ink-faint); text-align: right; font-variant-numeric: tabular-nums; }
+.rung.done .rb i { background: var(--jade); }
+.rung.done .rl { color: var(--jade); }
+.rung.cur { border-color: var(--cinnabar); box-shadow: var(--shadow); }
+.rung.cur .rl { color: var(--cinnabar); }
+.rung.cur .rb i { background: var(--cinnabar); }
+.level-pill {
+  display: inline-block; font-family: var(--display); font-size: 12.5px; font-weight: 700;
+  background: var(--cinnabar-wash); color: var(--cinnabar);
+  padding: 3px 12px; border-radius: 999px; margin-right: 8px; vertical-align: 2px;
+}
+.pool-chip.new { border-color: var(--amber); background: var(--amber-wash); }
+
 /* ---- magic story ---- */
 .theme-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; max-width: 560px; }
 .theme-card {

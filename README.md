@@ -29,7 +29,8 @@ ships in the `data/` folder. Audio uses the Mac's built-in Chinese voices.
 | "我的汉字" dashboard: hardest characters first | `js/app.js` |
 | Paste-to-import: any Chinese text becomes a tappable story | `js/annotate.js` |
 | 游乐场 games (bubble pop, memory match) built from each child's tricky characters — answers feed mastery | `js/games.js` |
-| 魔法故事屋: AI stories (Claude API) targeting the child's weakest characters, with a code-side vocabulary validator | `js/genstory.js` |
+| 魔法故事屋: AI stories (OpenAI or Claude API) targeting the child's weakest characters, with a code-side vocabulary validator | `js/genstory.js` |
+| 识字阶梯: graded character database, 8 levels × 50 chars in the spirit of 四五快读-style curricula (original curation); drives game pools, story targets, and the dashboard ladder | `tools/levels_source.py` → `data/levels.js` |
 
 All learning data lives in the browser's localStorage, per profile. Nothing
 leaves the machine.

@@ -85,7 +85,12 @@
     if (!p) return VIEWS.profiles();
     if (!Store.apiKey()) return viewKeySetup();
 
-    const targets = Store.practicePool(p.id, 5);
+    // targets: up to 3 trickiest tapped characters + 2 new ones from the
+    // child's current ladder level, so stories both consolidate and advance
+    const tapped = Store.practicePool(p.id, 3);
+    const frontier = Store.levelFrontier(p.id, 5)
+      .filter(f => !tapped.some(t => t.ch === f.ch)).slice(0, 5 - Math.min(3, tapped.length));
+    const targets = tapped.slice(0, 3).concat(frontier);
     if (targets.length < 3) {
       app.innerHTML = `${topbar("play")}
         <div class="stage celebrate"><div class="stars">📖</div>
@@ -106,8 +111,9 @@
         <button class="chip-btn" id="key-edit" title="家长设置">🔐</button>
       </div>
       <div class="stage" style="padding:26px">
-        <p style="max-width:none">新故事会用到你正在学的字：
-          ${targets.map(t => `<span class="pool-chip">${esc(t.ch)}</span>`).join("")}
+        <p style="max-width:none"><span class="level-pill">识字阶梯 · 第${Store.currentLevel(p.id)}级</span>
+          新故事会用到你正在学的字：
+          ${targets.map(t => `<span class="pool-chip ${t.level ? "new" : ""}" title="${t.level ? "第" + t.level + "级新字" : "点读过的字"}">${esc(t.ch)}</span>`).join("")}
         </p>
         <label class="form-label" style="margin-top:20px">选一个主题 · Pick a theme</label>
         <div class="theme-grid">
@@ -136,20 +142,23 @@
   /* ---------- generation + validation ---------- */
   function buildPrompt(p, targets, theme, hero, feedback) {
     const known = Store.knownChars(p.id);
+    const lvl = Store.currentLevel(p.id);
+    const ladder = Store.ladderChars(p.id);          // 识字阶梯 levels 1..current
     const floor = p.band === 1 ? 500 : p.band === 2 ? 1200 : 2500;
-    const allowed = [...new Set([...commonChars(floor), ...known, ...targets.map(t => t.ch)])];
+    const allowed = [...new Set([...commonChars(floor), ...ladder, ...known, ...targets.map(t => t.ch)])];
     const lenHint = p.band === 1 ? "8到10页，每页一句话，每句不超过14个字"
       : p.band === 2 ? "8到10页，每页一到两句话" : "8到12页，可以有更丰富的句子";
     return {
       allowed: new Set(allowed),
-      system: `你是一位优秀的中文儿童故事作家。为一个${UI.BANDS[p.band]}的孩子写原创短故事，帮助他们巩固刚学的汉字。
+      system: `你是一位优秀的中文儿童故事作家。为一个${UI.BANDS[p.band]}的孩子写原创短故事。孩子的识字水平是第${lvl}级（共${Store.levelCount()}级），已经认识这些字：${ladder.slice(0, 200)}${ladder.length > 200 ? "……" : ""}
 最重要的规则：这些正在学习的字，每一个都必须在故事里出现至少2次 —— ${targets.map(t => `「${t.ch}」`).join("")}。写完后逐个检查，缺一个字就重写那一页，把它自然地加进去。
 
 其他规则：
-1. 尽量只使用常见的简单汉字。孩子认字有限，越常用的字越好。
-2. 故事要温暖、有趣、有一点小波折，适合孩子，不能有可怕或暴力的内容。
-3. ${lenHint}。
-4. 不要在输出里加拼音或英文。`,
+1. 故事要一层一层变难：前几页用最简单的字、最短的句子；越往后句子稍长，逐渐用上正在学习的字（新字集中在中后段反复出现）。
+2. 尽量只用上面列出的认识的字和最常见的简单字。
+3. 故事要温暖、有趣、有一点小波折，适合孩子，不能有可怕或暴力的内容。
+4. ${lenHint}。
+5. 不要在输出里加拼音或英文。`,
       user: `主题：${theme}${hero ? `。主角叫「${hero}」` : ""}。请写一个新故事。${feedback || ""}`,
     };
   }

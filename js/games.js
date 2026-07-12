@@ -31,6 +31,7 @@
       ${topbar("play")}
       <div class="play-head">
         <h2 class="play-title">游乐场 <small>Playground</small></h2>
+        <span class="level-pill">第${Store.currentLevel(p.id)}级</span>
         <span class="star-count">⭐ ${stars}</span>
       </div>
       ${pool.length < MIN_CHARS ? needMoreNote() : `

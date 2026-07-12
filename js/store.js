@@ -17,6 +17,7 @@
   const write = (k, v) => LS.setItem(k, JSON.stringify(v));
 
   const DICT = window.DIANDU_DICT || { chars: {}, words: {} };
+  const LEVELS = window.DIANDU_LEVELS || [];
   const MAXRANK = 3800;
   const sigmoid = x => 1 / (1 + Math.exp(-x));
 
@@ -91,8 +92,54 @@
       const rows = this.report(pid).filter(r => r.py);
       const tricky = rows.filter(r => this.bucket(r.mastery) < 2);
       const rest = rows.filter(r => this.bucket(r.mastery) === 2);
-      return tricky.concat(rest).slice(0, n);   // weakest first, pad with review
+      let pool = tricky.concat(rest);            // weakest first, pad with review
+      if (pool.length < n) {                     // cold start: pad from the level ladder
+        const have = new Set(pool.map(r => r.ch));
+        for (const f of this.levelFrontier(pid, n)) {
+          if (have.has(f.ch)) continue;
+          pool.push({ ...f, taps: 0, passes: 0, mastery: this.mastery(pid, f.ch) });
+          if (pool.length >= n) break;
+        }
+      }
+      return pool.slice(0, n);
     },
+
+    // ---------- 识字阶梯 (character level ladder) ----------
+    levelCount() { return LEVELS.length; },
+    charLevel(ch) {
+      for (let i = 0; i < LEVELS.length; i++) if (LEVELS[i].includes(ch)) return i + 1;
+      return null;
+    },
+    levelProgress(pid, lvl, statsCache) {
+      const s = statsCache || this.stats(pid);
+      const chars = [...(LEVELS[lvl - 1] || "")];
+      const mastered = chars.filter(ch => this.mastery(pid, ch, s) >= 0.8).length;
+      return { mastered, total: chars.length };
+    },
+    /* Current rung: first level the child hasn't mastered 80% of. */
+    currentLevel(pid) {
+      const s = this.stats(pid);
+      for (let l = 1; l <= LEVELS.length; l++) {
+        const p = this.levelProgress(pid, l, s);
+        if (p.mastered < p.total * 0.8) return l;
+      }
+      return LEVELS.length || 1;
+    },
+    /* Next characters to learn from the current level, curriculum order —
+       already-encountered ones first so reading and the ladder reinforce
+       each other. */
+    levelFrontier(pid, n) {
+      const s = this.stats(pid);
+      const lvl = this.currentLevel(pid);
+      const open = [...(LEVELS[lvl - 1] || "")].filter(ch => this.mastery(pid, ch, s) < 0.8);
+      const seen = open.filter(ch => s[ch]), unseen = open.filter(ch => !s[ch]);
+      return seen.concat(unseen).slice(0, n).map(ch => {
+        const d = DICT.chars[ch] || [[], ""];
+        return { ch, py: (d[0] && d[0][0]) || "", gloss: d[1] || "", level: lvl };
+      });
+    },
+    /* All characters up to and including the child's current level. */
+    ladderChars(pid) { return LEVELS.slice(0, this.currentLevel(pid)).join(""); },
 
     /* Characters this child reliably knows (for the story generator). */
     knownChars(pid) {

@@ -354,8 +354,22 @@
     rows.forEach(r => counts[Store.bucket(r.mastery)]++);
     const barColor = b => ["var(--cinnabar)", "var(--amber)", "var(--jade)"][b];
 
+    const curLvl = Store.currentLevel(p.id);
+    const ladderHtml = Array.from({ length: Store.levelCount() }, (_, i) => {
+      const lvl = i + 1;
+      const pr = Store.levelProgress(p.id, lvl);
+      const done = pr.mastered >= pr.total * 0.8;
+      return `<div class="rung ${lvl === curLvl ? "cur" : ""} ${done ? "done" : ""}">
+        <span class="rl">第${lvl}级</span>
+        <span class="rb"><i style="width:${Math.round(100 * pr.mastered / pr.total)}%"></i></span>
+        <span class="rn">${pr.mastered}/${pr.total}</span>
+      </div>`;
+    }).join("");
+
     app.innerHTML = `
       ${topbar("dash")}
+      <div class="section-h" style="margin-top:6px">识字阶梯 · 你在第${curLvl}级 (character ladder)</div>
+      <div class="ladder">${ladderHtml}</div>
       <div class="sum-row">
         <div class="sum-card jade"><div class="n">${counts[2]}</div><div class="l">认识啦 · Mastered</div></div>
         <div class="sum-card amber"><div class="n">${counts[1]}</div><div class="l">学习中 · Learning</div></div>
