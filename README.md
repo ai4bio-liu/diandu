@@ -28,6 +28,8 @@ ships in the `data/` folder. Audio uses the Mac's built-in Chinese voices.
 | Difficulty engine: taps vs. passes → per-child mastery score | `js/store.js` |
 | "我的汉字" dashboard: hardest characters first | `js/app.js` |
 | Paste-to-import: any Chinese text becomes a tappable story | `js/annotate.js` |
+| 游乐场 games (bubble pop, memory match) built from each child's tricky characters — answers feed mastery | `js/games.js` |
+| 魔法故事屋: AI stories (Claude API) targeting the child's weakest characters, with a code-side vocabulary validator | `js/genstory.js` |
 
 All learning data lives in the browser's localStorage, per profile. Nothing
 leaves the machine.
@@ -50,9 +52,17 @@ cd tools && ../venv/bin/python build_stories.py           # -> data/stories.js
 
 (`cedict.txt` is the CC-CEDICT dictionary from mdbg.net.)
 
+## AI story generation (魔法故事屋)
+
+Needs a parent's Anthropic API key (console.anthropic.com), entered in-app
+behind the parent gate (🔐 in the playground). The key is stored only in that
+device's browser localStorage and is sent only to api.anthropic.com. Each
+story targets the child's most-tapped characters, and the vocabulary
+constraint is enforced by code (with one retry) — not trusted to the model.
+Limit: 8 stories/day per device.
+
 ## Roadmap
 
-- **Phase 2** — photo/OCR import (PaddleOCR + confirm screen), spaced-repetition
-  review game, stroke-order animation (Hanzi Writer)
-- **Phase 3** — AI story generation from each child's learned characters (Claude API)
+- **Phase 2 (remaining)** — photo/OCR import (PaddleOCR + confirm screen),
+  stroke-order animation (Hanzi Writer)
 - **Phase 4** — cloud deployment with family accounts and a parent dashboard

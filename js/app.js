@@ -36,6 +36,7 @@
         <button class="brand" data-nav="library">点读<small>DianDu</small></button>
         <span class="spacer"></span>
         ${p ? `
+          <button class="chip-btn ${active === "play" ? "primary" : ""}" data-nav="play">🎮 游乐场</button>
           <button class="chip-btn ${active === "dash" ? "primary" : ""}" data-nav="dash">📚 我的汉字</button>
           <button class="chip-btn ${active === "import" ? "primary" : ""}" data-nav="import">📥 导入故事</button>
           <button class="chip-btn" data-nav="profiles" title="换小朋友">
@@ -412,5 +413,13 @@
 
   /* ================= boot ================= */
   const VIEWS = { profiles: viewProfiles, library: viewLibrary, dash: viewDash, import: viewImport };
-  if (Store.current()) viewLibrary(); else viewProfiles();
+
+  /* Shared UI surface for add-on modules (games.js, genstory.js) — they
+     register their views into VIEWS and reuse these helpers. */
+  window.DIANDU_UI = { app, esc, topbar, bindNav, toast, openSheet, openReader, VIEWS, BANDS };
+
+  /* Boot after all modules have registered (scripts load in order). */
+  window.addEventListener("DOMContentLoaded", () => {
+    if (Store.current()) viewLibrary(); else viewProfiles();
+  });
 })();
