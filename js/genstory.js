@@ -18,7 +18,7 @@
   const { app, esc, topbar, bindNav, toast, openReader, VIEWS } = UI;
 
   const CLAUDE_MODEL = "claude-opus-4-8";
-  const OPENAI_MODEL = "gpt-4o-mini";
+  const OPENAI_MODEL = "gpt-4o";   // mini drops target-char constraints; 4o follows them
   const DAILY_LIMIT = 8;
   const provider = () => Store.apiKey().startsWith("sk-ant") ? "anthropic" : "openai";
   const HAN = /[一-鿿]/g;
@@ -85,7 +85,7 @@
     if (!p) return VIEWS.profiles();
     if (!Store.apiKey()) return viewKeySetup();
 
-    const targets = Store.practicePool(p.id, 6);
+    const targets = Store.practicePool(p.id, 5);
     if (targets.length < 3) {
       app.innerHTML = `${topbar("play")}
         <div class="stage celebrate"><div class="stars">📖</div>
@@ -143,12 +143,13 @@
     return {
       allowed: new Set(allowed),
       system: `你是一位优秀的中文儿童故事作家。为一个${UI.BANDS[p.band]}的孩子写原创短故事，帮助他们巩固刚学的汉字。
-规则：
-1. 必须使用这些正在学习的字，每个至少出现2次：${targets.map(t => t.ch).join("、")}
-2. 尽量只使用常见的简单汉字。孩子认字有限，越常用的字越好。
-3. 故事要温暖、有趣、有一点小波折，适合孩子，不能有可怕或暴力的内容。
-4. ${lenHint}。
-5. 不要在输出里加拼音或英文。`,
+最重要的规则：这些正在学习的字，每一个都必须在故事里出现至少2次 —— ${targets.map(t => `「${t.ch}」`).join("")}。写完后逐个检查，缺一个字就重写那一页，把它自然地加进去。
+
+其他规则：
+1. 尽量只使用常见的简单汉字。孩子认字有限，越常用的字越好。
+2. 故事要温暖、有趣、有一点小波折，适合孩子，不能有可怕或暴力的内容。
+3. ${lenHint}。
+4. 不要在输出里加拼音或英文。`,
       user: `主题：${theme}${hero ? `。主角叫「${hero}」` : ""}。请写一个新故事。${feedback || ""}`,
     };
   }
@@ -158,7 +159,8 @@
     const problems = [];
     for (const t of targets) {
       const count = (text.match(new RegExp(t.ch, "g")) || []).length;
-      if (count < 2) problems.push(`「${t.ch}」只出现了${count}次，需要至少2次`);
+      if (count === 0) problems.push(`「${t.ch}」完全没有出现，必须写进故事里，至少出现2次`);
+      else if (count < 2) problems.push(`「${t.ch}」只出现了${count}次，需要至少2次`);
     }
     const chars = text.match(HAN) || [];
     const hard = chars.filter(c => !allowed.has(c));
@@ -250,7 +252,9 @@
           `\n上一稿的问题：${problems.join("；")}。请重写一个修正这些问题的新故事。`);
         story = await callLLM(prompt.system, prompt.user);
         problems = validate(story, targets, prompt.allowed);
-        if (problems.some(x => x.includes("至少2次") || x.includes("太短"))) throw new Error("QUALITY");
+        // after the retry, only hard-fail if a target is entirely absent or the
+        // story is too short — a target used once is still useful practice
+        if (problems.some(x => x.includes("完全没有") || x.includes("太短"))) throw new Error("QUALITY");
       }
     } catch (e) {
       const msg = e.message === "KEY" ? "API key 不对了 — 请家长重新设置 🔐"
