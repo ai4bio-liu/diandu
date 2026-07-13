@@ -123,8 +123,9 @@
     const imports = Store.imports(p.id);
     const pool = [...imports, ...STORIES];
     const shown = pool.filter(s =>
-      libTab === "all" ? true :
-      libTab === "mine" ? s.imported :
+      libTab === "all" ? !s.gen :                       // real stories only
+      libTab === "magic" ? s.gen :                      // AI stories live here
+      libTab === "mine" ? s.imported && !s.gen :
       s.band === +libTab && !s.imported);
 
     const card = s => {
@@ -138,7 +139,7 @@
             <div class="tp">${esc(s.titlePy)}</div>
             <div class="te">${esc(s.en)}${prog && prog.done ? " · ⭐ 读完啦" : ""}</div>
             <div class="row">
-              <span class="badge ${s.imported ? "imp" : "b" + s.band}">${s.imported ? "我的" : BANDS[s.band]}</span>
+              <span class="badge ${s.gen ? "magic" : s.imported ? "imp" : "b" + s.band}">${s.gen ? "✨魔法" : s.imported ? "我的" : BANDS[s.band]}</span>
               <span class="knowbar"><i style="width:${pct}%"></i></span>
               <span class="pct">认识 ${pct}%</span>
             </div>
@@ -149,7 +150,7 @@
     app.innerHTML = `
       ${topbar()}
       <div class="tabs">
-        ${[["all", "全部"], ["1", "4–7 岁"], ["2", "8–12 岁"], ["3", "13–18 岁"], ["mine", "我导入的"]]
+        ${[["all", "全部"], ["1", "4–7 岁"], ["2", "8–12 岁"], ["3", "13–18 岁"], ["mine", "我导入的"], ["magic", "✨魔法故事"]]
           .map(([k, l]) => `<button class="tab ${libTab === k ? "sel" : ""}" data-tab="${k}">${l}</button>`).join("")}
       </div>
       <div class="story-grid">${shown.map(card).join("") ||
@@ -345,6 +346,47 @@
     if (w) w.addEventListener("click", () => TTS.speak(c.word, 0.7));
   }
 
+  /* ================= dashboard: 字库 (acquired-character database) =================
+     The mastery engine is level-agnostic: any character read past without
+     tapping a few times becomes "acquired", whatever its level — this view
+     makes that dynamic database visible. */
+  function charLibraryHtml(p, curLvl) {
+    const LEVELS = window.DIANDU_LEVELS || [];
+    const stats = Store.stats(p.id);
+    const known = Store.knownChars(p.id);
+    const knownSet = new Set(known);
+    const ahead = known.filter(ch => {
+      const l = Store.charLevel(ch);
+      return !l || l > curLvl;
+    });
+    const cellCls = ch => {
+      if (knownSet.has(ch)) return "got";
+      if (!stats[ch]) return "";
+      return Store.mastery(p.id, ch, stats) >= 0.3 ? "mid" : "low";
+    };
+    const cell = ch => `<button class="lib-cell ${cellCls(ch)}" data-ch="${esc(ch)}">${esc(ch)}</button>`;
+
+    return `
+      <div class="section-h">我的字库 · 认识 ${known.length} 个字${ahead.length
+        ? `，其中 <b style="color:var(--cinnabar)">${ahead.length}</b> 个是超前认识的` : ""} (my characters)</div>
+      ${ahead.length ? `
+        <div class="lib-level">
+          <span class="ll ahead">超前<br>认识</span>
+          <div class="lib-grid">${ahead.map(cell).join("")}</div>
+        </div>` : ""}
+      ${LEVELS.map((chars, i) => `
+        <div class="lib-level ${i + 1 > curLvl ? "future" : ""}">
+          <span class="ll">第${i + 1}级</span>
+          <div class="lib-grid">${[...chars].map(cell).join("")}</div>
+        </div>`).join("")}
+      <p class="import-note" style="margin:6px 0 24px">
+        <span class="lib-cell demo got">字</span> 认识啦
+        <span class="lib-cell demo mid">字</span> 学习中
+        <span class="lib-cell demo low">字</span> 要多练
+        <span class="lib-cell demo">字</span> 还没见过 —— 读书时没点、读过几次的字会自动变绿，不用等到那一级。
+      </p>`;
+  }
+
   /* ================= dashboard ================= */
   function viewDash() {
     const p = Store.current();
@@ -375,6 +417,7 @@
         <div class="sum-card amber"><div class="n">${counts[1]}</div><div class="l">学习中 · Learning</div></div>
         <div class="sum-card red"><div class="n">${counts[0]}</div><div class="l">要多练 · Tricky</div></div>
       </div>
+      ${charLibraryHtml(p, curLvl)}
       <div class="section-h">我的汉字 · 最难的排前面 (hardest first)</div>
       ${rows.length ? rows.slice(0, 200).map(r => `
         <button class="char-row" data-ch="${esc(r.ch)}" data-py="${esc(r.py)}">
@@ -391,6 +434,13 @@
       el.addEventListener("click", () => {
         TTS.speak(el.dataset.ch, 0.7);
         openSheet({ ch: el.dataset.ch, py: el.dataset.py, word: el.dataset.ch });
+      }));
+    app.querySelectorAll(".lib-cell:not(.demo)").forEach(el =>
+      el.addEventListener("click", () => {
+        const ch = el.dataset.ch;
+        const d = (window.DIANDU_DICT.chars[ch] || [[]])[0];
+        TTS.speak(ch, 0.7);
+        openSheet({ ch, py: (d && d[0]) || "", word: ch });
       }));
   }
 

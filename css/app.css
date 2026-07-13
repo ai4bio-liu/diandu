@@ -422,6 +422,34 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
 .rung.cur { border-color: var(--cinnabar); box-shadow: var(--shadow); }
 .rung.cur .rl { color: var(--cinnabar); }
 .rung.cur .rb i { background: var(--cinnabar); }
+/* ---- 字库 (acquired-character grid) ---- */
+.lib-level { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 10px; }
+.lib-level.future { opacity: .55; }
+.lib-level .ll {
+  flex: none; width: 44px; text-align: center;
+  font-family: var(--display); font-size: 12px; font-weight: 700;
+  color: var(--ink-faint); padding-top: 6px; line-height: 1.3;
+}
+.lib-level .ll.ahead { color: var(--cinnabar); }
+.lib-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(30px, 1fr));
+  gap: 4px; flex: 1;
+}
+.lib-cell {
+  font-family: var(--hanzi); font-size: 17px;
+  aspect-ratio: 1; min-width: 28px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--card); border: 1.5px solid var(--line-soft); border-radius: 6px;
+  color: var(--ink-faint);
+  transition: transform .1s;
+}
+.lib-cell:hover { transform: scale(1.15); border-color: var(--cinnabar); }
+.lib-cell.got { background: var(--jade-wash); border-color: var(--jade); color: var(--ink); }
+.lib-cell.mid { background: var(--amber-wash); border-color: var(--amber); color: var(--ink); }
+.lib-cell.low { background: var(--cinnabar-wash); border-color: var(--cinnabar); color: var(--ink); }
+.lib-cell.demo { width: 26px; min-width: 26px; display: inline-flex; vertical-align: -7px; margin: 0 4px 0 10px; cursor: default; }
+.badge.magic { background: linear-gradient(120deg, #FFF3D6, #FCE3EE); color: #A8642A; }
+
 .level-pill {
   display: inline-block; font-family: var(--display); font-size: 12.5px; font-weight: 700;
   background: var(--cinnabar-wash); color: var(--cinnabar);
