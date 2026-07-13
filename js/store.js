@@ -66,7 +66,10 @@
 
     // ---------- AI story generation settings ----------
     apiKey() { return LS.getItem("diandu.apikey") || ""; },
-    setApiKey(k) { k ? LS.setItem("diandu.apikey", k) : LS.removeItem("diandu.apikey"); },
+    setApiKey(k) {
+      k ? LS.setItem("diandu.apikey", k) : LS.removeItem("diandu.apikey");
+      if (k && window.DIANDU_SYNC) window.DIANDU_SYNC.touch();   // share family-wide
+    },
     genToday() {
       const rec = read("diandu.gencount", { d: "", n: 0 });
       const today = new Date().toDateString();

@@ -21,7 +21,8 @@
 
   /* ---------- local <-> doc ---------- */
   function collect() {
-    const doc = { profiles: read("diandu.profiles") || [], stats: {}, stars: {}, progress: {}, imports: {} };
+    const doc = { profiles: read("diandu.profiles") || [], stats: {}, stars: {}, progress: {}, imports: {},
+                  settings: { apikey: LS.getItem("diandu.apikey") || "" } };
     for (const p of doc.profiles) {
       doc.stats[p.id] = read("diandu.stats." + p.id) || {};
       doc.stars[p.id] = read("diandu.stars." + p.id) || 0;
@@ -32,6 +33,8 @@
   }
 
   function apply(doc) {
+    // family-wide AI key lives in the private repo; any synced device gets it
+    if (doc.settings && doc.settings.apikey) LS.setItem("diandu.apikey", doc.settings.apikey);
     LS.setItem("diandu.profiles", JSON.stringify(doc.profiles));
     for (const p of doc.profiles) {
       LS.setItem("diandu.stats." + p.id, JSON.stringify(doc.stats[p.id] || {}));
@@ -47,6 +50,9 @@
     [...(remote.profiles || []), ...(local.profiles || [])].forEach(p => {
       if (p && p.id && !ids.has(p.id)) { ids.set(p.id, p); out.profiles.push(p); }
     });
+    out.settings = {
+      apikey: ((local.settings || {}).apikey) || ((remote.settings || {}).apikey) || "",
+    };
     for (const id of ids.keys()) {
       const ra = (remote.stats || {})[id] || {}, lb = (local.stats || {})[id] || {}, sm = {};
       new Set([...Object.keys(ra), ...Object.keys(lb)]).forEach(ch => {
