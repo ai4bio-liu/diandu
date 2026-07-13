@@ -433,19 +433,30 @@
   window.DIANDU_UI = { app, esc, topbar, bindNav, toast, openSheet, openReader, VIEWS, BANDS };
 
   /* Boot after all modules have registered (scripts load in order). */
-  window.addEventListener("DOMContentLoaded", () => {
-    /* Magic key link: opening the app once via …/#key=sk-… installs the
-       AI key on this device (and scrubs it from the address bar), so kids
-       never have to type anything. The key itself is never in the code. */
-    const installKey = () => {
-      const m = location.hash.match(/^#key=(sk-[^&\s]+)/);
-      if (!m) return;
-      Store.setApiKey(decodeURIComponent(m[1]));
-      history.replaceState(null, "", location.pathname + location.search);
-      toast("🔐 魔法钥匙装好了！");
+  window.addEventListener("DOMContentLoaded", async () => {
+    /* Magic link: opening the app once via …/#key=sk-…&gh=github_pat_…
+       installs the AI key and/or the family-sync token on this device (and
+       scrubs them from the address bar) — kids never type anything. The
+       secrets themselves are never in the code. */
+    const installKeys = () => {
+      const params = new URLSearchParams(location.hash.slice(1));
+      let got = false;
+      const k = params.get("key");
+      if (k && k.startsWith("sk-")) { Store.setApiKey(k); got = true; }
+      const g = params.get("gh");
+      if (g) { localStorage.setItem("diandu.ghtoken", g); got = true; }
+      if (got) {
+        history.replaceState(null, "", location.pathname + location.search);
+        toast("🔐 魔法钥匙装好了！");
+      }
+      return got;
     };
-    installKey();
-    window.addEventListener("hashchange", installKey);   // link pasted into an open app
+    const fresh = installKeys();
+    window.addEventListener("hashchange", () => {        // link pasted into an open app
+      if (installKeys() && window.DIANDU_SYNC) window.DIANDU_SYNC.init();
+    });
+    if (window.DIANDU_SYNC) await window.DIANDU_SYNC.init();  // pull family data first
+    if (fresh && window.DIANDU_SYNC && window.DIANDU_SYNC.enabled()) toast("☁️ 云同步已开启");
     if (Store.current()) viewLibrary(); else viewProfiles();
   });
 })();

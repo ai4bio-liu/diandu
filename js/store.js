@@ -14,7 +14,12 @@
 (function () {
   const LS = window.localStorage;
   const read = (k, d) => { try { return JSON.parse(LS.getItem(k)) ?? d; } catch { return d; } };
-  const write = (k, v) => LS.setItem(k, JSON.stringify(v));
+  const write = (k, v) => {
+    LS.setItem(k, JSON.stringify(v));
+    if (k !== "diandu.current" && k !== "diandu.gencount" && window.DIANDU_SYNC) {
+      window.DIANDU_SYNC.touch();               // schedule a cloud sync
+    }
+  };
 
   const DICT = window.DIANDU_DICT || { chars: {}, words: {} };
   const LEVELS = window.DIANDU_LEVELS || [];
