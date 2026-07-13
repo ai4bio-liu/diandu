@@ -434,6 +434,18 @@
 
   /* Boot after all modules have registered (scripts load in order). */
   window.addEventListener("DOMContentLoaded", () => {
+    /* Magic key link: opening the app once via …/#key=sk-… installs the
+       AI key on this device (and scrubs it from the address bar), so kids
+       never have to type anything. The key itself is never in the code. */
+    const installKey = () => {
+      const m = location.hash.match(/^#key=(sk-[^&\s]+)/);
+      if (!m) return;
+      Store.setApiKey(decodeURIComponent(m[1]));
+      history.replaceState(null, "", location.pathname + location.search);
+      toast("🔐 魔法钥匙装好了！");
+    };
+    installKey();
+    window.addEventListener("hashchange", installKey);   // link pasted into an open app
     if (Store.current()) viewLibrary(); else viewProfiles();
   });
 })();
