@@ -39,16 +39,6 @@
     additionalProperties: false,
   };
 
-  /* ---------- common-character floor: top-N by corpus rank ---------- */
-  let commonCache = null;
-  function commonChars(n) {
-    if (!commonCache) {
-      commonCache = Object.entries(DICT.chars)
-        .sort((a, b) => a[1][2] - b[1][2]).map(e => e[0]);
-    }
-    return new Set(commonCache.slice(0, n));
-  }
-
   /* ---------- parent gate + key setup ---------- */
   function viewKeySetup() {
     const a = 3 + Math.floor(Math.random() * 6), b = 4 + Math.floor(Math.random() * 5);
@@ -144,21 +134,32 @@
     const known = Store.knownChars(p.id);
     const lvl = Store.currentLevel(p.id);
     const ladder = Store.ladderChars(p.id);          // 识字阶梯 levels 1..current
-    const floor = p.band === 1 ? 500 : p.band === 2 ? 1200 : 2500;
-    const allowed = [...new Set([...commonChars(floor), ...ladder, ...known, ...targets.map(t => t.ch)])];
+    // "level 0": spoken function words every child knows orally long before
+    // reading — always allowed, endlessly repeated, and tappable like any char
+    const GLUE = "我你他她它的地得和不说想要个们这那也吗呢";
+    // level-strict vocabulary: ladder + glue + known chars + targets;
+    // at most 10% of a story may fall outside this set (validator-enforced)
+    const allowed = new Set([...GLUE, ...ladder, ...known, ...targets.map(t => t.ch)]);
     const lenHint = p.band === 1 ? "8到10页，每页一句话，每句不超过14个字"
       : p.band === 2 ? "8到10页，每页一到两句话" : "8到12页，可以有更丰富的句子";
     return {
-      allowed: new Set(allowed),
-      system: `你是一位优秀的中文儿童故事作家。为一个${UI.BANDS[p.band]}的孩子写原创短故事。孩子的识字水平是第${lvl}级（共${Store.levelCount()}级），已经认识这些字：${ladder.slice(0, 200)}${ladder.length > 200 ? "……" : ""}
-最重要的规则：这些正在学习的字，每一个都必须在故事里出现至少2次 —— ${targets.map(t => `「${t.ch}」`).join("")}。写完后逐个检查，缺一个字就重写那一页，把它自然地加进去。
+      allowed,
+      system: `你是一位优秀的中文儿童故事作家。为一个${UI.BANDS[p.band]}的孩子写原创短故事。孩子的识字水平是第${lvl}级（共${Store.levelCount()}级）。
+
+孩子认识的字（字表）：${[...allowed].join("")}
+
+两条硬规则，缺一不可：
+1. 故事里至少90%的字必须来自上面的字表。字表以外的字总共不能超过10%，只在实在需要时用个别最常见的小词（如「的」「个」「来」）。宁可句子短、简单、重复，也绝不用字表外的字。写每一句之前，先确认这一句里的每个字都在字表里。
+2. 这些正在学习的字，每一个都必须出现至少2次 —— ${targets.map(t => `「${t.ch}」`).join("")}。写完后逐个检查，缺了就重写那一页。
+
+好句子的样子（几乎每个字都在初级字表里）：
+「天上有云。」「山上有大马。」「大马下山了。」「小鱼在水下。」「猫是狗的朋友」这样的句子里「朋友」若不在字表就不能用，要改成「猫和狗好」这种只用字表字的说法。
 
 其他规则：
 1. 故事要一层一层变难：前几页用最简单的字、最短的句子；越往后句子稍长，逐渐用上正在学习的字（新字集中在中后段反复出现）。
-2. 尽量只用上面列出的认识的字和最常见的简单字。
-3. 故事要温暖、有趣、有一点小波折，适合孩子，不能有可怕或暴力的内容。
-4. ${lenHint}。
-5. 不要在输出里加拼音或英文。`,
+2. 故事要温暖、有趣、有一点小波折，适合孩子，不能有可怕或暴力的内容。
+3. ${lenHint}。
+4. 不要在输出里加拼音或英文。`,
       user: `主题：${theme}${hero ? `。主角叫「${hero}」` : ""}。请写一个新故事。${feedback || ""}`,
     };
   }
@@ -174,8 +175,9 @@
     const chars = text.match(HAN) || [];
     const hard = chars.filter(c => !allowed.has(c));
     const hardPct = chars.length ? hard.length / chars.length : 1;
-    if (hardPct > 0.12) {
-      problems.push(`太多生僻字了（${[...new Set(hard)].slice(0, 8).join("、")}…），请换成更常见的字`);
+    if (hardPct > 0.10) {
+      problems.push(`字表以外的字占了${Math.round(hardPct * 100)}%，超过10%上限。`
+        + `这些字不在字表里：${[...new Set(hard)].join("、")}。请把它们换成字表里的字，或删掉那些句子`);
     }
     if (!story.pages.length || story.pages.length < 5) problems.push("故事太短了，请写8页左右");
     return problems;
@@ -255,15 +257,18 @@
     try {
       story = await callLLM(prompt.system, prompt.user);
       let problems = validate(story, targets, prompt.allowed);
-      if (problems.length) {
-        showBrewing("再改一改，让故事更适合你");
+      for (let retry = 0; retry < 2 && problems.length; retry++) {
+        showBrewing(retry ? "最后再改一次…" : "再改一改，让故事更适合你");
         prompt = buildPrompt(p, targets, theme, hero,
           `\n上一稿的问题：${problems.join("；")}。请重写一个修正这些问题的新故事。`);
         story = await callLLM(prompt.system, prompt.user);
         problems = validate(story, targets, prompt.allowed);
-        // after the retry, only hard-fail if a target is entirely absent or the
-        // story is too short — a target used once is still useful practice
-        if (problems.some(x => x.includes("完全没有") || x.includes("太短"))) throw new Error("QUALITY");
+      }
+      // hard gate: never deliver a story that is too hard for the child's
+      // level (>10% off-ladder), misses a target entirely, or is too short.
+      // a target used once (instead of twice) is still acceptable practice.
+      if (problems.some(x => x.includes("完全没有") || x.includes("太短") || x.includes("超过10%"))) {
+        throw new Error("QUALITY");
       }
     } catch (e) {
       const msg = e.message === "KEY" ? "API key 不对了 — 请家长重新设置 🔐"
