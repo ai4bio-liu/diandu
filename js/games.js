@@ -49,18 +49,12 @@
           <span class="gt">翻牌配对</span>
           <span class="gd">给汉字找到它的拼音朋友<br><small>Match character & pinyin</small></span>
         </button>
-        <button class="game-card magic" data-game="magic">
-          <span class="gi">✨</span>
-          <span class="gt">魔法故事屋</span>
-          <span class="gd">AI 用你正在学的字写新故事<br><small>New stories from your characters</small></span>
-        </button>
       </div>`}`;
     bindNav();
     app.querySelectorAll("[data-game]").forEach(b => b.addEventListener("click", () => {
       const g = b.dataset.game;
       if (g === "bubble") startBubble();
       else if (g === "match") startMatch();
-      else if (g === "magic") VIEWS.magic();
     }));
   }
 

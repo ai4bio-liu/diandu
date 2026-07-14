@@ -299,8 +299,9 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
 .stat-box .l { font-family: var(--display); font-size: 12px; color: var(--ink-faint); letter-spacing: .08em; }
 
 /* ============ dashboard ============ */
-.sum-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 24px; }
-@media (max-width: 560px) { .sum-row { grid-template-columns: 1fr; } }
+.sum-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
+@media (max-width: 640px) { .sum-row { grid-template-columns: repeat(2, 1fr); } }
+.sum-card.star .n { color: var(--amber); }
 .sum-card { border-radius: 14px; padding: 16px 18px; border: 1.5px solid var(--line); background: var(--card); }
 .sum-card .n { font-family: var(--display); font-size: 32px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .sum-card .l { font-family: var(--display); font-size: 13px; color: var(--ink-faint); }
@@ -449,6 +450,17 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:fo
 .lib-cell.low { background: var(--cinnabar-wash); border-color: var(--cinnabar); color: var(--ink); }
 .lib-cell.demo { width: 26px; min-width: 26px; display: inline-flex; vertical-align: -7px; margin: 0 4px 0 10px; cursor: default; }
 .badge.magic { background: linear-gradient(120deg, #FFF3D6, #FCE3EE); color: #A8642A; }
+
+/* ---- creation cards on the shelf ---- */
+.story-card.create {
+  border-style: dashed; border-color: var(--cinnabar);
+  background: linear-gradient(160deg, #FFFDF8, #FCF3EE);
+  align-items: center; justify-content: center; text-align: center;
+  gap: 6px; padding: 30px 16px; min-height: 220px;
+}
+.story-card.create .ci { font-size: 46px; }
+.story-card.create .ct { font-family: var(--display); font-size: 19px; font-weight: 700; color: var(--cinnabar); }
+.story-card.create .cd { font-family: var(--display); font-size: 13px; color: var(--ink-soft); }
 
 .level-pill {
   display: inline-block; font-family: var(--display); font-size: 12.5px; font-weight: 700;

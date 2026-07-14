@@ -36,11 +36,11 @@
         <button class="brand" data-nav="library">点读<small>DianDu</small></button>
         <span class="spacer"></span>
         ${p ? `
+          <button class="chip-btn ${active === "library" ? "primary" : ""}" data-nav="library">📖 书架</button>
           <button class="chip-btn ${active === "play" ? "primary" : ""}" data-nav="play">🎮 游乐场</button>
-          <button class="chip-btn ${active === "dash" ? "primary" : ""}" data-nav="dash">📚 我的汉字</button>
-          <button class="chip-btn ${active === "import" ? "primary" : ""}" data-nav="import">📥 导入故事</button>
+          <button class="chip-btn ${active === "dash" ? "primary" : ""}" data-nav="dash">🌟 我的进步</button>
           <button class="chip-btn" data-nav="profiles" title="换小朋友">
-            <span class="avatar">${p.avatar}</span> ${esc(p.name)}
+            <span class="avatar">${p.avatar}</span> ${esc(p.name)} · ⭐${Store.stars(p.id)}
           </button>` : ""}
       </div>`;
   }
@@ -147,22 +147,44 @@
         </button>`;
     };
 
+    /* creation lives on the shelf it fills: the magic tab starts with a
+       "make a new story" card, the imports tab with an "import" card */
+    const actionCard =
+      libTab === "magic" ? `
+        <button class="story-card create" data-create="magic">
+          <span class="ci">✨</span><span class="ct">变一个新故事</span>
+          <span class="cd">AI 用你正在学的字写故事</span></button>`
+      : libTab === "mine" ? `
+        <button class="story-card create" data-create="import">
+          <span class="ci">📥</span><span class="ct">导入新故事</span>
+          <span class="cd">粘贴任何中文故事（家长）</span></button>`
+      : "";
+
     app.innerHTML = `
-      ${topbar()}
+      ${topbar("library")}
       <div class="tabs">
         ${[["all", "全部"], ["1", "4–7 岁"], ["2", "8–12 岁"], ["3", "13–18 岁"], ["mine", "我导入的"], ["magic", "✨魔法故事"]]
           .map(([k, l]) => `<button class="tab ${libTab === k ? "sel" : ""}" data-tab="${k}">${l}</button>`).join("")}
+        <span style="flex:1"></span>
+        ${libTab === "magic" ? "" : `<button class="chip-btn" data-create="magic">✨ 变新故事</button>`}
       </div>
-      <div class="story-grid">${shown.map(card).join("") ||
-        `<p class="empty-note">这里还没有故事 — 点上面的 “导入故事” 加一个吧！</p>`}</div>`;
+      <div class="story-grid">${actionCard}${shown.map(card).join("")}</div>
+      ${!shown.length && !actionCard ? `<p class="empty-note">这里还没有故事</p>` : ""}`;
     bindNav();
     app.querySelectorAll("[data-tab]").forEach(b =>
       b.addEventListener("click", () => { libTab = b.dataset.tab; viewLibrary(); }));
+    app.querySelectorAll("[data-create]").forEach(b =>
+      b.addEventListener("click", () => VIEWS[b.dataset.create === "magic" ? "magic" : "import"]()));
     app.querySelectorAll("[data-story]").forEach(b =>
       b.addEventListener("click", () => {
         const s = pool.find(x => x.id === b.dataset.story);
         if (s) openReader(s);
       }));
+    /* first-run hint: the whole app hinges on knowing characters are tappable */
+    if (!localStorage.getItem("diandu.hinted")) {
+      localStorage.setItem("diandu.hinted", "1");
+      setTimeout(() => toast("👆 打开故事后，点每一个字都能听到发音哦"), 600);
+    }
   }
 
   /* ================= reader ================= */
@@ -173,6 +195,7 @@
       story, page: (saved && !saved.done && saved.page) || 0,
       tappedThisVisit: new Set(), passedPages: new Set(),
       newTaps: 0, pinyinAll: p.band === 1,
+      hadDone: !!(saved && saved.done),
     };
 
     function pageChars(idx) {
@@ -273,6 +296,12 @@
 
     function renderCelebration() {
       const uniq = story.uniqueChars || 0;
+      /* reading earns stars too — first finish pays more than a re-read */
+      const earned = state.hadDone ? 1 : 3;
+      state.hadDone = true;
+      Store.addStars(p.id, earned);
+      /* return to the shelf this story lives on */
+      if (story.gen) libTab = "magic"; else if (story.imported) libTab = "mine";
       app.innerHTML = `
         ${topbar()}
         <div class="stage celebrate">
@@ -281,12 +310,14 @@
           <p class="sub">${esc(story.title)} · ${esc(story.en)}</p>
           ${story.moral ? `<p class="moral">💡 ${esc(story.moral)}</p>` : ""}
           <div class="stat-row">
+            <div class="stat-box"><div class="n">+${earned} ⭐</div><div class="l">得到星星</div></div>
             <div class="stat-box"><div class="n">${story.charCount || "–"}</div><div class="l">读过的字</div></div>
             <div class="stat-box"><div class="n">${uniq}</div><div class="l">不同的字</div></div>
             <div class="stat-box"><div class="n">${state.newTaps}</div><div class="l">点读了</div></div>
           </div>
-          <div class="reader-nav" style="max-width:440px;margin:30px auto 0">
+          <div class="reader-nav" style="max-width:560px;margin:30px auto 0">
             <button class="nav-btn" id="again">再读一遍</button>
+            ${story.gen ? `<button class="nav-btn" data-nav="magic">再变一个 ✨</button>` : ""}
             <button class="nav-btn go" data-nav="library">回书架 →</button>
           </div>
         </div>`;
@@ -413,12 +444,13 @@
       <div class="section-h" style="margin-top:6px">识字阶梯 · 你在第${curLvl}级 (character ladder)</div>
       <div class="ladder">${ladderHtml}</div>
       <div class="sum-row">
+        <div class="sum-card star"><div class="n">${Store.stars(p.id)}</div><div class="l">⭐ 星星 · Stars</div></div>
         <div class="sum-card jade"><div class="n">${counts[2]}</div><div class="l">认识啦 · Mastered</div></div>
         <div class="sum-card amber"><div class="n">${counts[1]}</div><div class="l">学习中 · Learning</div></div>
         <div class="sum-card red"><div class="n">${counts[0]}</div><div class="l">要多练 · Tricky</div></div>
       </div>
       ${charLibraryHtml(p, curLvl)}
-      <div class="section-h">我的汉字 · 最难的排前面 (hardest first)</div>
+      <div class="section-h">要多练的字 · 最难的排前面 (hardest first)</div>
       ${rows.length ? rows.slice(0, 200).map(r => `
         <button class="char-row" data-ch="${esc(r.ch)}" data-py="${esc(r.py)}">
           <span class="c">${esc(r.ch)}</span>

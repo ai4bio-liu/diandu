@@ -43,7 +43,7 @@
   function viewKeySetup() {
     const a = 3 + Math.floor(Math.random() * 6), b = 4 + Math.floor(Math.random() * 5);
     app.innerHTML = `
-      ${topbar("play")}
+      ${topbar("library")}
       <div class="form-card">
         <h2>🔐 家长设置 · Grown-ups only</h2>
         <p class="import-note">Story magic needs your own AI API key — either an
@@ -56,7 +56,7 @@
         <label class="form-label" for="key-in">API Key</label>
         <input class="text-input" id="key-in" type="password" placeholder="sk-…（OpenAI）或 sk-ant-…（Anthropic）">
         <button class="btn-primary" id="key-save">保存 · Save</button>
-        <button class="btn-quiet" data-nav="play">返回</button>
+        <button class="btn-quiet" data-nav="library">返回</button>
       </div>`;
     bindNav();
     app.querySelector("#key-save").addEventListener("click", () => {
@@ -82,7 +82,7 @@
       .filter(f => !tapped.some(t => t.ch === f.ch)).slice(0, 5 - Math.min(3, tapped.length));
     const targets = tapped.slice(0, 3).concat(frontier);
     if (targets.length < 3) {
-      app.innerHTML = `${topbar("play")}
+      app.innerHTML = `${topbar("library")}
         <div class="stage celebrate"><div class="stars">📖</div>
         <h2>先去点读几个字！</h2>
         <p class="sub">魔法故事屋需要知道你在学哪些字。</p>
@@ -93,9 +93,9 @@
     const left = DAILY_LIMIT - Store.genToday();
 
     app.innerHTML = `
-      ${topbar("play")}
+      ${topbar("library")}
       <div class="reader-top">
-        <button class="chip-btn" data-nav="play">← 游乐场</button>
+        <button class="chip-btn" data-nav="library">← 书架</button>
         <span class="title" style="font-family:var(--display);font-size:19px;font-weight:600">✨ 魔法故事屋</span>
         <span class="spacer" style="flex:1"></span>
         <button class="chip-btn" id="key-edit" title="家长设置">🔐</button>
@@ -243,7 +243,7 @@
   }
 
   function showBrewing(step) {
-    app.innerHTML = `${topbar("play")}
+    app.innerHTML = `${topbar("library")}
       <div class="stage celebrate">
         <div class="stars brew">✨🪄✨</div>
         <h2>魔法进行中…</h2>
